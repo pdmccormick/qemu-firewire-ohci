@@ -700,6 +700,7 @@ static const pci_class_desc pci_class_descriptions[] =
     { 0x0608, "RACEWAY bridge"},
     { 0x0680, "Bridge"},
     { 0x0c03, "USB controller"},
+    { 0x0c00, "Firewire controller"},
     { 0, NULL}
 };
 

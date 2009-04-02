@@ -1123,6 +1123,8 @@ vga_bios_error:
                 virtio_console_init(pci_bus, virtcon_hds[i]);
         }
     }
+
+    pci_firewire_init(pci_bus, -1);
 }
 
 static void pc_init_pci(ram_addr_t ram_size, int vga_ram_size,

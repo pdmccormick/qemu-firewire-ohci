@@ -28,6 +28,7 @@
 
 #define PCI_CLASS_SYSTEM_OTHER           0x0880
 
+#define PCI_CLASS_SERIAL_FIREWIRE        0x0c00
 #define PCI_CLASS_SERIAL_USB             0x0c03
 
 #define PCI_CLASS_BRIDGE_HOST            0x0600
