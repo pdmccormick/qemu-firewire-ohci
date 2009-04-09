@@ -58,107 +58,23 @@ enum ohci1349_pci_offs {
     PCI_Base_Addr_0 = 0x10
 };
 
+/* Numeric enum constants for OHCI registers */
 enum ohci1394_regs_offs {
-    Version         = 0x000,
-    GUID_ROM        = 0x004,
-    ATRetries       = 0x008,
-    
-    CSRReadData     = 0x00c,
-    CSRCompareDate  = 0x010,
-    CSRControl      = 0x014,
+#define LABEL(f,v)  f = v,
+#include "ohci1394-regs.h"
+#undef LABEL
+};
 
-    ConfigROMhdr    = 0x018,
-    BusID           = 0x01c,
-    BusOptions      = 0x020,
-    GUIDHi          = 0x024,
-    GUIDLo          = 0x028,
+/* Labels for OHCI registers by address */
+typedef struct {
+    uint32_t addr;
+    const char *label;
+} ohci1394_const_label_t;
 
-    ConfigROMmap        = 0x034,
-    PostedWriteAddrLo   = 0x038,
-    PostedWriteAddrHi   = 0x03c,
-    VendorID            = 0x040,
-    
-    HCControl_Set       = 0x050,
-    HCControl_Clear     = 0x054,
-    
-    SelfIDBuffer    = 0x064,
-    SelfIDCount     = 0x068,
-
-    IRMultiChanMaskHi_Set   = 0x070,
-    IRMultiChanMaskHi_Clear = 0x074,
-    
-    IRMultiChanMaskLo_Set   = 0x078,
-    IRMultiChanMaskLo_Clear = 0x07c,
-
-    IntEvent_Set    = 0x080,
-    IntEvent_Clear  = 0x084,
-
-    IntMask_Set     = 0x088,
-    IntMask_Clear   = 0x08c,
-
-    IsoXmitIntEvent_Set     = 0x090,
-    IsoXmitIntEvent_Clear   = 0x094,
-    IsoXmitIntMask_Set      = 0x098,
-    IsoXmitIntMask_Clear    = 0x09c,
-    
-    IsoRecvIntEvent_Set     = 0x0a0,
-    IsoRecvIntEvent_Clear   = 0x0a4,
-    IsoRecvIntMask_Set      = 0x0a8,
-    IsoRecvIntMask_Clear    = 0x0ac,
-
-    InitialBandwidthAvailable   = 0x0b0,
-    InitialChannelsAvailableHi  = 0x0b4,
-    InitialChannelsAvailableLo  = 0x0b8,
-
-    FairnessControl     = 0x0dc,
-    LinkControl_Set     = 0x0e0,
-    LinkControl_Clear   = 0x0e4,
-    NodeID              = 0x0e8,
-    PhyControl          = 0x0ec,
-    IsoCycleTimer       = 0x0f0,
-    
-    AsyncReqFilterHi_Set   = 0x100,
-    AsyncReqFilterHi_Clear = 0x104,
-    AsyncReqFilterLo_Set   = 0x108,
-    AsyncReqFilterLo_Clear = 0x10c,
-
-    PhyReqFilterHi_Set     = 0x110,
-    PhyReqFilterHi_Clear   = 0x114,
-    PhyReqFilterLo_Set     = 0x118,
-    PhyReqFilterLo_Clear   = 0x11c,
-
-    PhysicalUpperBound     = 0x120,
-    
-    /* Async Request Transmit */ 
-    AsyncReqXmitContextControl_Set   = 0x180,
-    AsyncReqXmitContextControl_Clear = 0x184,
-    AsyncReqXmitCommandPtr    = 0x18c,
-    
-    /* Async Response Transmit */ 
-    AsyncRespXmitContextControl_Set   = 0x1a0,
-    AsyncRespXmitContextControl_Clear = 0x1a4,
-    AsyncRespXmitCommandPtr    = 0x1ac,
-    
-    /* Async Request Receive */ 
-    AsyncReqRecvContextControl_Set   = 0x1c0,
-    AsyncReqRecvContextControl_Clear = 0x1c4,
-    AsyncReqRecvCommandPtr    = 0x1cc,
-    
-    /* Async Response Receive */ 
-    AsyncRespRecvContextControl_Set   = 0x1e0,
-    AsyncRespRecvContextControl_Clear = 0x1e4,
-    AsyncRepsRecvCommandPtr    = 0x1ec,
-
-    /* Iso Transmit */    
-    IsoXmitContextControl_Set   = 0x200,  // + 16*n
-    IsoXmitContextControl_Clear = 0x204,  // + 16*n
-    IsoXmitCommandPtr    = 0x20C,  // + 16*n
-
-    /* Iso Receive */    
-    IsoRecvContextControl_Set   = 0x400,  // + 32*n
-    IsoRecvContextControl_Clear = 0x404,  // + 32*n
-    IsoRecvCommandPtr    = 0x40C,  // + 32*n
-    IsoRecvContextMatch  = 0x410,  // + 32*n
+ohci1394_const_label_t ohci1394_regs_labels[] = {
+#define LABEL(f,v) { v, #f },
+#include "ohci1394-regs.h"
+#undef LABEL
 };
 
 enum ohci1394_regs_mask {
@@ -190,7 +106,7 @@ enum ohci1394_regs_mask {
     GUID_ROM_miniROM    = 0x000000ff, GUID_ROM_miniROM_shift = 0,
 
     /* 5.4  ATRetries */
-    MASK_ATRetries               = 0xffffffff,
+    MASK_ATRetries               = 0xffff0fff,
     ATRetries_secondLimit        = 0xe0000000, ATRetries_secondLimit_shift        = 29,
     ATRetries_cycleLimit         = 0x1fff0000, ATRetries_cycleLimit_shift         = 16,
     ATRetries_maxPhysRespRetries = 0x00000f00, ATRetries_maxPhysRespRetries_shift = 8,
@@ -371,9 +287,29 @@ typedef struct {
     int regs_index;
     uint32_t regs_addr;
 
+    /* OHCI register values */
     ohci1394_controller_registers regs;
+
+    /* Internal device state */
+    int softReset;
 } OHCI1394State;
 
+
+static char *ohci1394_find_addr_label(uint32_t addr)
+{
+    int i;
+    static char unknown[64];
+
+    for(i = 0; i < (sizeof(ohci1394_regs_labels) / sizeof(ohci1394_const_label_t)); i++) {
+        if(ohci1394_regs_labels[i].addr == addr)
+            return (char *) ohci1394_regs_labels[i].label;
+    }
+
+    unknown[0] = '\0';
+    snprintf(unknown, sizeof(unknown), "0x" TARGET_FMT_plx, addr);
+
+    return unknown;
+}
 
 static void ohci1394_interrupt_update(OHCI1394State *d)
 {
@@ -393,17 +329,48 @@ static void ohci1394_interrupt_update(OHCI1394State *d)
     qemu_set_irq(d->dev.irq[0], level);
 }
 
+static void ohci1394_reset_hard(OHCI1394State *d)
+{
+}
+
+static void ohci1394_reset_soft(OHCI1394State *d)
+{
+    /* Do soft reset */
+    
+    /* Clear status */
+    d->regs.HCControl &= ~HCControl_softReset;
+}
+
+static void ohci1394_reset_bus(OHCI1394State *d)
+{
+}
+
+/* OHCI register write handlers */
+static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32_t val, int clear)
+{
+    if(clear)
+        return;
+
+    // val & HCControl_linkEnable  -> linkEnable set to 1
+    // val & HCControl_linkEnable  -> linkEnable cleared to 0
+    if(val & HCControl_linkEnable)
+        printf("error! LPS cleared by software");
+    
+    // p46. Software shall not clear LPS
+
+    if(val & HCControl_softReset)
+        ohci1394_reset_soft(d);
+}
+
+static void ohci1394_reg_write_PhyControl(OHCI1394State *d, uint32_t addr, uint32_t val)
+{
+}
+
 /* OHCI register space */
 static void ohci1394_regs_map(PCIDevice *pci_dev, int region_num, uint32_t addr, uint32_t size, int type)
 {
     OHCI1394State *d = (OHCI1394State *)pci_dev;
-
     d->regs_addr = addr;
-
-#ifdef OHCI1394_DEBUG
-    printf("ohci1394_regs_map addr=0x%08x size=0x%08x\n", addr, size);
-#endif
-
     cpu_register_physical_memory(addr, PCI_REGISTER_BLOCK_SIZE, d->regs_index);
 }
 
@@ -414,6 +381,8 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
     enum ohci1394_regs_offs reg = (enum ohci1394_regs_offs) (addr & 0xffff);
 
     val = 0;
+
+#define READ_DIRECT(k)  case k: val = d->regs.k; break;
 
 /* Set and Clear registers both return same value */
 #define READ_SET_AND_CLEAR(k)       \
@@ -434,6 +403,7 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
     switch(reg) {
         READ_SET_AND_CLEAR      (HCControl)
         READ_SET_AND_CLEAR      (LinkControl)
+        READ_DIRECT             (PhyControl)
         READ_SET_AND_MASK_CLEAR (IntEvent, IntMask)
         READ_SET_AND_CLEAR      (IntMask)
         READ_SET_AND_MASK_CLEAR (IsoXmitIntEvent, IsoXmitIntMask)
@@ -446,7 +416,7 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
     }
 
 #ifdef OHCI1394_DEBUG
-    printf("ohci1394_regs_readl addr=0x" TARGET_FMT_plx " val=0x%08x\n", addr, val);
+    printf("ohci1394_regs_readl reg=%s val=0x%08x\n", ohci1394_find_addr_label(addr), val);
 #endif
 
     return val;
@@ -458,41 +428,42 @@ static void ohci1394_regs_writel(void *opaque, target_phys_addr_t addr, uint32_t
     enum ohci1394_regs_offs reg = (enum ohci1394_regs_offs) (addr & 0xffff);
 
 #ifdef OHCI1394_DEBUG
-    printf("ohci1394_regs_writel addr=0x" TARGET_FMT_plx " val=0x%08x\n", addr, val);
+    printf("ohci1394_regs_writel reg=%s val=0x%08x\n", ohci1394_find_addr_label(addr), val);
 #endif
 
-#define WRITE_SET_AND_CLEAR_INTERRUPT(f)                        \
-        case f ## _Set:                                         \
-            d->regs.f = REG_SET(d->regs.f, val) & MASK_ ## f;   \
-            ohci1394_interrupt_update(d);                       \
-            break;                                              \
-        case f ## _Clear:                                       \
-            d->regs.f = REG_CLEAR(d->regs.f, val) & MASK_ ## f; \
-            ohci1394_interrupt_update(d);                       \
+#define WRITE_HANDLE(f)     case f: d->regs.f = val; ohci1394_reg_write_ ## f (d, addr, val); break;
+
+#define WRITE_SET(f)        \
+        case f ## _Set:     \
+            d->regs.f = REG_SET(d->regs.f, val) & MASK_ ## f;
+
+#define WRITE_CLEAR(f)      \
+        case f ## _Clear:   \
+            d->regs.f = REG_CLEAR(d->regs.f, val) & MASK_ ## f;
+
+#define WRITE_SET_AND_CLEAR_INTERRUPT(f)    \
+        WRITE_SET(f)                        \
+            ohci1394_interrupt_update(d);   \
+            break;                          \
+        WRITE_CLEAR(f)                      \
+            ohci1394_interrupt_update(d);   \
+            break;
+
+#define WRITE_SET_AND_CLEAR_HANDLE(f)       \
+        WRITE_SET(f)                        \
+            ohci1394_reg_write_ ## f (d, addr, val, 0);  \
+            break;                          \
+        WRITE_CLEAR(f)                      \
+            ohci1394_reg_write_ ## f (d, addr, val, 1);  \
             break;
 
 
     switch(reg) {
-        /* x.yz  HCControl */
-        case HCControl_Set:
-            d->regs.HCControl = REG_SET(d->regs.HCControl, val) & MASK_HCControl;
-
-            // val & HCControl_linkEnable  -> linkEnable set to 1
-            break;
-        
-        case HCControl_Clear:
-            d->regs.HCControl = REG_CLEAR(d->regs.HCControl, val) & MASK_HCControl;
-
-            // val & HCControl_linkEnable  -> linkEnable cleared to 0
-            if(val & HCControl_linkEnable)
-                printf("error! LPS cleared by software");
-            
-            // p46. Software shall not clear LPS
-            break;
+        /* 5.7  HCControl */
+        WRITE_SET_AND_CLEAR_HANDLE(HCControl)
 
         /* 5.12  PhyControl */
-        case PhyControl:
-            break;
+        WRITE_HANDLE(PhyControl)
 
         /* 6.1  IntEvent */
         WRITE_SET_AND_CLEAR_INTERRUPT(IntEvent)
@@ -528,6 +499,8 @@ static CPUWriteMemoryFunc *ohci1394_regs_write[] = {
     (CPUWriteMemoryFunc *) &ohci1394_regs_writel
 };
 
+
+/* Host interface */
 static void ohci1394_host_raw_fd_read(void *opaque)
 {
     OHCI1394State *d = opaque;
@@ -560,6 +533,7 @@ static void ohci1394_common_init(OHCI1394State *d)
     d->host_fd = fd;
 }
 
+/* PCI device init */
 PCIDevice *pci_firewire_init(PCIBus *bus, int devfn)
 {
     OHCI1394State *d;
