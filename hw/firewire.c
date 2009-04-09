@@ -36,11 +36,8 @@
 #define PCI_DEVICE_ID_TI_TSB43AB22          0x8023
 
 
-#define MASK_SET(f,v)    ((f) | (v))
-#define MASK_CLEAR(f,v)  ((f) & ~(v))
-
-#define REG_SET(f,v)     { (f) = MASK_SET((f), (v)); }
-#define REG_CLEAR(f,v)   { (f) = MASK_CLEAR((f), (v)); }
+#define REG_SET(f,v)    ((f) | (v))
+#define REG_CLEAR(f,v)  ((f) & ~(v))
 
 #define FIELD_SET(s,f,v)    ( ((s) & ~(f)) | ( ((v) << ( f ## _shift )) & f))
 #define FIELD_GET(s,f)      ( ((s) & (f)) >> (f ## _shift) )
@@ -135,37 +132,38 @@ enum ohci1394_regs_offs {
     /* Async Request Transmit */ 
     AsyncReqXmitContextControl_Set   = 0x180,
     AsyncReqXmitContextControl_Clear = 0x184,
-    AsyncReqXmitContextCommandPtr    = 0x18c,
+    AsyncReqXmitCommandPtr    = 0x18c,
     
     /* Async Response Transmit */ 
     AsyncRespXmitContextControl_Set   = 0x1a0,
     AsyncRespXmitContextControl_Clear = 0x1a4,
-    AsyncRespXmitContextCommandPtr    = 0x1ac,
+    AsyncRespXmitCommandPtr    = 0x1ac,
     
     /* Async Request Receive */ 
     AsyncReqRecvContextControl_Set   = 0x1c0,
     AsyncReqRecvContextControl_Clear = 0x1c4,
-    AsyncReqRecvContextCommandPtr    = 0x1cc,
+    AsyncReqRecvCommandPtr    = 0x1cc,
     
     /* Async Response Receive */ 
     AsyncRespRecvContextControl_Set   = 0x1e0,
     AsyncRespRecvContextControl_Clear = 0x1e4,
-    AsyncRepsRecvContextCommandPtr    = 0x1ec,
+    AsyncRepsRecvCommandPtr    = 0x1ec,
 
     /* Iso Transmit */    
     IsoXmitContextControl_Set   = 0x200,  // + 16*n
     IsoXmitContextControl_Clear = 0x204,  // + 16*n
-    IsoXmitContextCommandPtr    = 0x20C,  // + 16*n
+    IsoXmitCommandPtr    = 0x20C,  // + 16*n
 
     /* Iso Receive */    
     IsoRecvContextControl_Set   = 0x400,  // + 32*n
     IsoRecvContextControl_Clear = 0x404,  // + 32*n
-    IsoRecvContextCommandPtr    = 0x40C,  // + 32*n
-    IsoRecvContextContextMatch  = 0x410,  // + 32*n
+    IsoRecvCommandPtr    = 0x40C,  // + 32*n
+    IsoRecvContextMatch  = 0x410,  // + 32*n
 };
 
 enum ohci1394_regs_mask {
     /* 3.1.1  ContextControl */
+    MASK_ContextControl     = 0x00009cff,
     ContextControl_run      = (1 << 15),
     ContextControl_wake     = (1 << 12),
     ContextControl_dead     = (1 << 11),
@@ -174,21 +172,25 @@ enum ohci1394_regs_mask {
     ContextControl_event    = 0x0000001f, ContextControl_event_shift = 0,
 
     /* 3.1.2  CommandPtr */
+    MASK_CommandPtr             = 0xffffffff,
     CommandPtr_descriptorAddr   = 0xfffffff0, CommandPtr_descriptorAddr_shift = 4,
     CommandPtr_Z                = 0x0000000f, CommandPtr_Z_shift = 0,
 
     /* 5.2  Version */
+    MASK_Version        = 0x01ff00ff,
     Version_GUID_ROM    = (1 << 24),
     Version_version     = 0x00ff0000, Version_version_shift  = 16,
     Version_revision    = 0x000000ff, Version_revision_shift = 0,
 
     /* 5.3  GUID_ROM */
+    MASK_GUID_ROM       = 0x82ff00ff,
     GUID_ROM_addrReset  = (1 << 31),
     GUID_ROM_rdStart    = (1 << 25),
     GUID_ROM_rdData     = 0x00ff0000, GUID_ROM_rdData_shift  = 16,
     GUID_ROM_miniROM    = 0x000000ff, GUID_ROM_miniROM_shift = 0,
 
     /* 5.4  ATRetries */
+    MASK_ATRetries               = 0xffffffff,
     ATRetries_secondLimit        = 0xe0000000, ATRetries_secondLimit_shift        = 29,
     ATRetries_cycleLimit         = 0x1fff0000, ATRetries_cycleLimit_shift         = 16,
     ATRetries_maxPhysRespRetries = 0x00000f00, ATRetries_maxPhysRespRetries_shift = 8,
@@ -198,10 +200,12 @@ enum ohci1394_regs_mask {
     /* 5.5  p56 */
     
     /* 5.6  VendorID */
+    MASK_VendorID            = 0xffffffff,
     VendorID_vendorUnique    = 0xff000000, VendorID_vendorUnique_shift    = 24,
     VendorID_vendorCompanyID = 0x00ffffff, VendorID_vendorCompanyID_shift = 0,
     
     /* 5.7  HCControl */
+    MASK_HCControl              = 0xe0cf0000,
     HCControl_BIBimageValid     = (1 << 31),
     HCControl_noByteSwapData    = (1 << 30),
     HCControl_ackTardyEnable    = (1 << 29),
@@ -212,7 +216,12 @@ enum ohci1394_regs_mask {
     HCControl_linkEnable        = (1 << 17),
     HCControl_softReset         = (1 << 16),
 
+    /* 5.9  FairnessControl */
+    MASK_FairnessControl    = 0x000000ff,
+    FairnessControl_pri_req = 0x000000ff, FairnessControl_pri_req_shift = 0,
+
     /* 5.10  LinkControl */
+    MASK_LinkControl               = 0x00700640,
     LinkControl_cycleSource        = (1 << 22),
     LinkControl_cycleMastre        = (1 << 21),
     LinkControl_cycleTimerEnable   = (1 << 20),
@@ -221,6 +230,7 @@ enum ohci1394_regs_mask {
     LinkControl_tag1SyncFilterLock = (1 << 6),
 
     /* 5.11  Node ID */
+    MASK_NodeID       = 0xc800ffff,
     NodeID_iDValid    = (1 << 31),
     NodeID_root       = (1 << 30),
     NodeID_CPS        = (1 << 27),
@@ -228,6 +238,7 @@ enum ohci1394_regs_mask {
     NodeID_nodeNumber = 0x0000003f, NodeID_nodeNumber_shift = 0,
 
     /* 5.12  PhyControl */
+    MASK_PhyControl    = 0xffffffff,
     PhyControl_rdDone  = (1 << 31),
     PhyControl_rdAddr  = 0x0f000000, PhyControl_rdAddr_shift  = 24,
     PhyControl_rdData  = 0x00ff0000, PhyControl_rdData_shift  = 16,
@@ -245,12 +256,48 @@ enum ohci1394_regs_mask {
     /* 5.14.2  PhyReqFilter */
 
     /* 6.1  IntEvent */
-    IntEvent_,
+    MASK_IntEvent               = 0x6fff83ff,
+    IntEvent_vendorSpecific     = (1 << 30),
+    IntEvent_softInterrupt      = (1 << 29),
+    IntEvent_ack_tardy          = (1 << 27),
+    IntEvent_phyRegRcvd         = (1 << 26),
+    IntEvent_cycleTooLong       = (1 << 25),
+    IntEvent_unrecoverableError = (1 << 24),
+    IntEvent_cycleInconsistent  = (1 << 23),
+    IntEvent_cycleLost          = (1 << 22),
+    IntEvent_cycle64Seconds     = (1 << 21),
+    IntEvent_cycleSynch         = (1 << 20),
+    IntEvent_phy                = (1 << 19),
+    IntEvent_regAccessFail      = (1 << 18),
+    IntEvent_busReset           = (1 << 17),
+    IntEvent_selfIDComplete     = (1 << 16),
+    IntEvent_selfIDComplete2    = (1 << 15),
+    IntEvent_lockRespErr        = (1 << 9),
+    IntEvent_postedWriteErr     = (1 << 8),
+    IntEvent_isochRx            = (1 << 7),
+    IntEvent_isochTx            = (1 << 6),
+    IntEvent_RSPkt              = (1 << 5),
+    IntEvent_RQPkt              = (1 << 4),
+    IntEvent_ARRS               = (1 << 3),
+    IntEvent_ARRQ               = (1 << 2),
+    IntEvent_respTxComplete     = (1 << 1),
+    IntEvent_reqTxComplete      = 1,
 
     /* 6.2  IntMask */
+    MASK_IntMask                = 0x6fff83ff,
+    IntMask_masterIntEnable     = (1 << 31),
 
+    /* 6.3.1  IsoXmitIntEvent */
+    MASK_IsoXmitIntEvent = 0xffffffff,
 
+    /* 6.3.2  IsoXmitIntMask */
+    MASK_IsoXmitIntMask = 0xffffffff,
+    
+    /* 6.4.1  IsoRecvIntEvent */
+    MASK_IsoRecvIntEvent = 0xffffffff,
 
+    /* 6.4.2  IsoRecvIntMask */
+    MASK_IsoRecvIntMask = 0xffffffff,
 };
 
 enum ohci1394_event_code {
@@ -284,48 +331,36 @@ enum ohci1394_event_code {
 };
 
 
-typedef struct {
-    int _reserved0 : 16;
-    int run : 1;
-    int _reserved1 : 2;
-    int wake : 1;
-    int dead : 1;
-    int active : 1;
-    int _reserved2 : 2;
-    int spd : 3;
-    enum ohci1394_event_code event : 5;
-} ohci1394_context_control_t;
-
-typedef struct {
-    int descriptorAddress : 28;
-    int z : 4;
-} ohci1394_command_ptr_t;
-
-struct ohci1394_reg_HCControl {
-    int BIBimageValid : 1;
-    int noByteSwapData : 1;
-    int ackTardyEnable : 1;
-    int _reserved0 : 5;
-    int programPhyEnable : 1;
-    int aPhyEnhanceEnable : 1;
-    int _reserved1 : 2;
-    int LPS : 1;
-    int postedWriteEnable : 1;
-    int linkEnable : 1;
-    int softReset : 1;
-    int _reserved2 : 16;
-};
 
 
 typedef struct {
     uint32_t Version;
     uint32_t GUID_ROM;
     uint32_t ATRetries;
+    // CSR
+    uint32_t ConfigROMhdr;
     uint32_t BusID;
-
+    uint32_t BusOptions;
+    uint32_t GUIDHi, GUIDLo;
+    uint32_t ConfigROMmap;
+    uint32_t PostedWriteAddressLo, PostedWriteAddressHi;
+    uint32_t VendorID;
     uint32_t HCControl;
-
+    uint32_t SelfIDBuffer, SelfIDCount;
+    uint32_t IRMultiChanMaskHi, IRMultiChanMaskLo;
+    uint32_t IntEvent, IntMask;
+    uint32_t IsoXmitIntEvent, IsoXmitIntMask;
+    uint32_t IsoRecvIntEvent, IsoRecvIntMask;
+    uint32_t InitialBandwidthAvailable;
+    uint32_t InitialChannelsAvailableHi, InitialChannelsAvailableLo;
+    uint32_t FairnessControl;
     uint32_t LinkControl;
+    uint32_t NodeID;
+    uint32_t PhyControl;
+    uint32_t IsoCycleTimer;
+    uint32_t AsyncReqFilterHi, AsyncReqFilterLo;
+    uint32_t PhyReqFilterHi, PhyReqFilterLo;
+    uint32_t PhysicalUpperBound;
 } ohci1394_controller_registers;
 
 typedef struct {
@@ -340,6 +375,25 @@ typedef struct {
 } OHCI1394State;
 
 
+static void ohci1394_interrupt_update(OHCI1394State *d)
+{
+    int level = 0;
+
+    /* Update iso xmit/recv interrupt status bits */
+    if((d->regs.IsoXmitIntEvent & d->regs.IsoXmitIntMask) != 0)
+        d->regs.IntEvent |= IntEvent_isochTx;
+    
+    if((d->regs.IsoRecvIntEvent & d->regs.IsoRecvIntMask) != 0)
+        d->regs.IntEvent |= IntEvent_isochRx;
+
+    /* Determine if interrupt should be fired */
+    if((d->regs.IntEvent & IntMask_masterIntEnable) != 0 && (d->regs.IntEvent & d->regs.IntMask) != 0)
+        level = 1;
+
+    qemu_set_irq(d->dev.irq[0], level);
+}
+
+/* OHCI register space */
 static void ohci1394_regs_map(PCIDevice *pci_dev, int region_num, uint32_t addr, uint32_t size, int type)
 {
     OHCI1394State *d = (OHCI1394State *)pci_dev;
@@ -359,21 +413,37 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
     uint32_t val;
     enum ohci1394_regs_offs reg = (enum ohci1394_regs_offs) (addr & 0xffff);
 
-    switch(reg) {
-        case HCControl_Set:
-        case HCControl_Clear:
-            val = d->regs.HCControl;
-            break;
-
-        case LinkControl_Set:
-        case LinkControl_Clear:
-            val = d->regs.LinkControl;
-            break;
-
-default: return -1;
-    }
-
     val = 0;
+
+/* Set and Clear registers both return same value */
+#define READ_SET_AND_CLEAR(k)       \
+        case k ## _Set:             \
+        case k ## _Clear:           \
+            val = d->regs.k;        \
+            break;
+
+/* Set returns value, clear returns a masked one */
+#define READ_SET_AND_MASK_CLEAR(k,m)        \
+        case k ## _Set:                     \
+            val = d->regs.k;                \
+            break;                          \
+        case k ## _Clear:                   \
+            val = d->regs.k & d->regs.m;    \
+            break;
+
+    switch(reg) {
+        READ_SET_AND_CLEAR      (HCControl)
+        READ_SET_AND_CLEAR      (LinkControl)
+        READ_SET_AND_MASK_CLEAR (IntEvent, IntMask)
+        READ_SET_AND_CLEAR      (IntMask)
+        READ_SET_AND_MASK_CLEAR (IsoXmitIntEvent, IsoXmitIntMask)
+        READ_SET_AND_CLEAR      (IsoXmitIntMask)
+        READ_SET_AND_MASK_CLEAR (IsoRecvIntEvent, IsoRecvIntMask)
+        READ_SET_AND_CLEAR      (IsoRecvIntMask)
+
+        default:
+            break;
+    }
 
 #ifdef OHCI1394_DEBUG
     printf("ohci1394_regs_readl addr=0x" TARGET_FMT_plx " val=0x%08x\n", addr, val);
@@ -391,15 +461,27 @@ static void ohci1394_regs_writel(void *opaque, target_phys_addr_t addr, uint32_t
     printf("ohci1394_regs_writel addr=0x" TARGET_FMT_plx " val=0x%08x\n", addr, val);
 #endif
 
+#define WRITE_SET_AND_CLEAR_INTERRUPT(f)                        \
+        case f ## _Set:                                         \
+            d->regs.f = REG_SET(d->regs.f, val) & MASK_ ## f;   \
+            ohci1394_interrupt_update(d);                       \
+            break;                                              \
+        case f ## _Clear:                                       \
+            d->regs.f = REG_CLEAR(d->regs.f, val) & MASK_ ## f; \
+            ohci1394_interrupt_update(d);                       \
+            break;
+
+
     switch(reg) {
+        /* x.yz  HCControl */
         case HCControl_Set:
-            REG_SET(d->regs.HCControl, val);
+            d->regs.HCControl = REG_SET(d->regs.HCControl, val) & MASK_HCControl;
 
             // val & HCControl_linkEnable  -> linkEnable set to 1
             break;
         
         case HCControl_Clear:
-            REG_CLEAR(d->regs.HCControl, val);
+            d->regs.HCControl = REG_CLEAR(d->regs.HCControl, val) & MASK_HCControl;
 
             // val & HCControl_linkEnable  -> linkEnable cleared to 0
             if(val & HCControl_linkEnable)
@@ -410,24 +492,40 @@ static void ohci1394_regs_writel(void *opaque, target_phys_addr_t addr, uint32_t
 
         /* 5.12  PhyControl */
         case PhyControl:
-//    PhyControl_rdData  = 0x00ff0000, PhyControl_rdData_shift  = 16,
-
             break;
 
-default: return;
+        /* 6.1  IntEvent */
+        WRITE_SET_AND_CLEAR_INTERRUPT(IntEvent)
+        WRITE_SET_AND_CLEAR_INTERRUPT(IntMask)
+
+        /* 6.3.1  IsoXmitIntEvent */
+        WRITE_SET_AND_CLEAR_INTERRUPT(IsoXmitIntEvent)
+        
+        /* 6.3.2  IsoXmitIntMask */
+        WRITE_SET_AND_CLEAR_INTERRUPT(IsoXmitIntMask)
+
+        /* 6.4.1  IsoRecvIntEvent */
+        WRITE_SET_AND_CLEAR_INTERRUPT(IsoRecvIntEvent)
+
+        /* 6.4.2  IsoRecvIntMask */
+        WRITE_SET_AND_CLEAR_INTERRUPT(IsoRecvIntMask)
+
+
+        default:
+            break;
     }
 }
 
 static CPUReadMemoryFunc *ohci1394_regs_read[] = {
     NULL,
     NULL,
-    (CPUReadMemoryFunc *)&ohci1394_regs_readl
+    (CPUReadMemoryFunc *) &ohci1394_regs_readl
 };
 
 static CPUWriteMemoryFunc *ohci1394_regs_write[] = {
     NULL,
     NULL,
-    (CPUWriteMemoryFunc *)&ohci1394_regs_writel
+    (CPUWriteMemoryFunc *) &ohci1394_regs_writel
 };
 
 static void ohci1394_host_raw_fd_read(void *opaque)
@@ -476,6 +574,7 @@ PCIDevice *pci_firewire_init(PCIBus *bus, int devfn)
     pci_config_set_class(pci_conf, PCI_CLASS_SERIAL_FIREWIRE);
 
     *(uint8_t *)(pci_conf + 0x09) = 0x10;    /* IEEE1394 OHCI - programming interface */
+    *(uint8_t *)(pci_conf + 0x3d) = 0x01;    /* Interrupt pin 0 */
 
     *(uint16_t *)(pci_conf + PCI_Command) = cpu_to_le16(0x0046);
     *(uint16_t *)(pci_conf + PCI_Status)  = cpu_to_le16(0x0000);
@@ -488,6 +587,6 @@ PCIDevice *pci_firewire_init(PCIBus *bus, int devfn)
 
     ohci1394_common_init(d);
 
-    return (PCIDevice *)d;
+    return (PCIDevice *) d;
 }
 
