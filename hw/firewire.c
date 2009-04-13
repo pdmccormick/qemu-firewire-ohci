@@ -292,6 +292,7 @@ typedef struct {
 
     /* Internal device state */
     int softReset;
+    char phy_regs[16];
 } OHCI1394State;
 
 
@@ -364,6 +365,28 @@ static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32
 
 static void ohci1394_reg_write_PhyControl(OHCI1394State *d, uint32_t addr, uint32_t val)
 {
+    char data;
+
+    if(val & PhyControl_rdReg) {
+        addr = FIELD_GET(val, PhyControl_regAddr);
+        data = d->phy_regs[addr];
+
+        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
+        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdData, data);
+    }
+    else if(val & PhyControl_wrReg) {
+        addr = FIELD_GET(val, PhyControl_regAddr);
+        data = FIELD_GET(val, PhyControl_wrData);
+        d->phy_regs[addr] = data;
+
+        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
+    }
+    else
+        return;
+
+    d->regs.PhyControl |= PhyControl_rdDone;
+    d->regs.IntEvent |= IntEvent_phyRegRcvd;
+    ohci1394_interrupt_update(d);
 }
 
 /* OHCI register space */
@@ -531,6 +554,9 @@ static void ohci1394_common_init(OHCI1394State *d)
     qemu_set_fd_handler(fd, ohci1394_host_raw_fd_read, NULL, d);
 
     d->host_fd = fd;
+
+    /* Clear PHY regs */
+    memset(d->phy_regs, 0, sizeof(d->phy_regs));
 }
 
 /* PCI device init */
