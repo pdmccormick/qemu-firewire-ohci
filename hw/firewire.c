@@ -63,21 +63,51 @@ enum ohci1349_pci_offs {
 
 /* Numeric enum constants for OHCI registers */
 enum ohci1394_regs_offs {
-#define LABEL(f,v)  f = v,
+#define BEGIN_REGISTER(r,a,m)               r = a,
+#define END_REGISTER
+#define BEGIN_REGISTER_SET_CLEAR(r,a,m)     r ## _Set   = a,        \
+                                            r ## _Clear = a + 4,
+#define END_REGISTER_SET_CLEAR
+#define FLAG(...)
+#define FIELD(...)
 #include "ohci1394-regs.h"
-#undef LABEL
+#undef BEGIN_REGISTER
+#undef END_REGISTER
+#undef BEGIN_REGISTER_SET_CLEAR
+#undef END_REGISTER_SET_CLEAR
+#undef FLAG
+#undef FIELD
 };
 
 /* Labels for OHCI registers by address */
+#define MAX_REG_FIELDS  32
 typedef struct {
     uint32_t addr;
+    int is_pair;
     const char *label;
-} ohci1394_const_label_t;
+    struct ohci1394_reg_field_t {
+        int is_flag;
+        const char *name;
+        int val;
+        int shift;
+    } fields[MAX_REG_FIELDS];
+} ohci1394_reg_desc_t;
 
-ohci1394_const_label_t ohci1394_regs_labels[] = {
-#define LABEL(f,v) { v, #f },
+ohci1394_reg_desc_t ohci1394_regs_desc[] = {
+#define BEGIN_REGISTER(r,a,m)  { a, 0, #r, {
+#define END_REGISTER  { -1, NULL, -1, -1 }   } },
+#define BEGIN_REGISTER_SET_CLEAR(r,a,m) { a, 1, #r, {
+#define END_REGISTER_SET_CLEAR END_REGISTER
+#define FLAG(r,f,p)     { 1, #f, p, 0 },
+#define FIELD(r,f,m,s)  { 0, #f, m, s },
 #include "ohci1394-regs.h"
-#undef LABEL
+#undef BEGIN_REGISTER
+#undef END_REGISTER
+#undef BEGIN_REGISTER_SET_CLEAR
+#undef END_REGISTER_SET_CLEAR
+#undef FLAG
+#undef FIELD
+    { -1, -1, NULL, {} }
 };
 
 enum ohci1394_regs_mask {
@@ -95,139 +125,19 @@ enum ohci1394_regs_mask {
     CommandPtr_descriptorAddr   = 0xfffffff0, CommandPtr_descriptorAddr_shift = 4,
     CommandPtr_Z                = 0x0000000f, CommandPtr_Z_shift = 0,
 
-    /* 5.2  Version */
-    MASK_Version        = 0x01ff00ff,
-    Version_GUID_ROM    = (1 << 24),
-    Version_version     = 0x00ff0000, Version_version_shift  = 16,
-    Version_revision    = 0x000000ff, Version_revision_shift = 0,
-
-    /* 5.3  GUID_ROM */
-    MASK_GUID_ROM       = 0x82ff00ff,
-    GUID_ROM_addrReset  = (1 << 31),
-    GUID_ROM_rdStart    = (1 << 25),
-    GUID_ROM_rdData     = 0x00ff0000, GUID_ROM_rdData_shift  = 16,
-    GUID_ROM_miniROM    = 0x000000ff, GUID_ROM_miniROM_shift = 0,
-
-    /* 5.4  ATRetries */
-    MASK_ATRetries               = 0xffff0fff,
-    ATRetries_secondLimit        = 0xe0000000, ATRetries_secondLimit_shift        = 29,
-    ATRetries_cycleLimit         = 0x1fff0000, ATRetries_cycleLimit_shift         = 16,
-    ATRetries_maxPhysRespRetries = 0x00000f00, ATRetries_maxPhysRespRetries_shift = 8,
-    ATRetries_maxATRespRetries   = 0x000000f0, ATRetries_maxATRespRetries_shift   = 4,
-    ATRetries_maxATReqRetries    = 0x0000000f, ATRetries_maxATReqRetries_shift    = 0,
-
-    /* 5.5  p56 */
-    
-    /* 5.6  VendorID */
-    MASK_VendorID            = 0xffffffff,
-    VendorID_vendorUnique    = 0xff000000, VendorID_vendorUnique_shift    = 24,
-    VendorID_vendorCompanyID = 0x00ffffff, VendorID_vendorCompanyID_shift = 0,
-    
-    /* 5.7  HCControl */
-    MASK_HCControl              = 0xe0cf0000,
-    HCControl_BIBimageValid     = (1 << 31),
-    HCControl_noByteSwapData    = (1 << 30),
-    HCControl_ackTardyEnable    = (1 << 29),
-    HCControl_programPhyEnable  = (1 << 23),
-    HCControl_aPhyEnhanceEnable = (1 << 22),
-    HCControl_LPS               = (1 << 19),
-    HCControl_postedWriteEnable = (1 << 18),
-    HCControl_linkEnable        = (1 << 17),
-    HCControl_softReset         = (1 << 16),
-
-    /* 5.9  FairnessControl */
-    MASK_FairnessControl    = 0x000000ff,
-    FairnessControl_pri_req = 0x000000ff, FairnessControl_pri_req_shift = 0,
-
-    /* 5.10  LinkControl */
-    MASK_LinkControl               = 0x00700640,
-    LinkControl_cycleSource        = (1 << 22),
-    LinkControl_cycleMastre        = (1 << 21),
-    LinkControl_cycleTimerEnable   = (1 << 20),
-    LinkControl_rcvPhyPkt          = (1 << 10),
-    LinkControl_rcvSelfID          = (1 << 9),
-    LinkControl_tag1SyncFilterLock = (1 << 6),
-
-    /* 5.11  Node ID */
-    MASK_NodeID       = 0xc800ffff,
-    NodeID_iDValid    = (1 << 31),
-    NodeID_root       = (1 << 30),
-    NodeID_CPS        = (1 << 27),
-    NodeID_busNumber  = 0x0000ffc0, NodeID_busNumber_shift  = 6,
-    NodeID_nodeNumber = 0x0000003f, NodeID_nodeNumber_shift = 0,
-
-    /* 5.12  PhyControl */
-    MASK_PhyControl    = 0xffffffff,
-    PhyControl_rdDone  = (1 << 31),
-    PhyControl_rdAddr  = 0x0f000000, PhyControl_rdAddr_shift  = 24,
-    PhyControl_rdData  = 0x00ff0000, PhyControl_rdData_shift  = 16,
-    PhyControl_rdReg   = (1 << 15),
-    PhyControl_wrReg   = (1 << 14),
-    PhyControl_regAddr = 0x00000f00, PhyControl_regAddr_shift = 8,
-    PhyControl_wrData  = 0x000000ff, PhyControl_wrData_shift  = 0,
-
-    /* 5.13  IsoCycleTimer */
-    IsoCycleTimer_cycleSeconds = 0xfe000000, IsoCycleTimer_cycleSeconds_shift = 25,
-    IsoCycleTimer_cycleCount   = 0x01fff000, IsoCycleTimer_cycleCount_shift   = 12,
-    IsoCycleTimer_cycleOffest  = 0x00000fff, IsoCycleTimer_cycleOffset_shift  = 0,
-
-    /* 5.14.1  AsyncReqFilter */
-    /* 5.14.2  PhyReqFilter */
-
-    /* 6.1  IntEvent */
-    MASK_IntEvent               = 0x6fff83ff,
-    IntEvent_vendorSpecific     = (1 << 30),
-    IntEvent_softInterrupt      = (1 << 29),
-    IntEvent_ack_tardy          = (1 << 27),
-    IntEvent_phyRegRcvd         = (1 << 26),
-    IntEvent_cycleTooLong       = (1 << 25),
-    IntEvent_unrecoverableError = (1 << 24),
-    IntEvent_cycleInconsistent  = (1 << 23),
-    IntEvent_cycleLost          = (1 << 22),
-    IntEvent_cycle64Seconds     = (1 << 21),
-    IntEvent_cycleSynch         = (1 << 20),
-    IntEvent_phy                = (1 << 19),
-    IntEvent_regAccessFail      = (1 << 18),
-    IntEvent_busReset           = (1 << 17),
-    IntEvent_selfIDComplete     = (1 << 16),
-    IntEvent_selfIDComplete2    = (1 << 15),
-    IntEvent_lockRespErr        = (1 << 9),
-    IntEvent_postedWriteErr     = (1 << 8),
-    IntEvent_isochRx            = (1 << 7),
-    IntEvent_isochTx            = (1 << 6),
-    IntEvent_RSPkt              = (1 << 5),
-    IntEvent_RQPkt              = (1 << 4),
-    IntEvent_ARRS               = (1 << 3),
-    IntEvent_ARRQ               = (1 << 2),
-    IntEvent_respTxComplete     = (1 << 1),
-    IntEvent_reqTxComplete      = 1,
-
-    /* 6.2  IntMask */
-    MASK_IntMask                = 0x6fff83ff,
-    IntMask_masterIntEnable     = (1 << 31),
-
-    /* 6.3.1  IsoXmitIntEvent */
-    MASK_IsoXmitIntEvent = 0xffffffff,
-
-    /* 6.3.2  IsoXmitIntMask */
-    MASK_IsoXmitIntMask = 0xffffffff,
-    
-    /* 6.4.1  IsoRecvIntEvent */
-    MASK_IsoRecvIntEvent = 0xffffffff,
-
-    /* 6.4.2  IsoRecvIntMask */
-    MASK_IsoRecvIntMask = 0xffffffff,
-
-    /* 11.1  SelfIDBuffer */
-    MASK_SelfIDBuffer = 0xfffff800,
-    SelfIDBuffer_selfIDBufferPtr = 0xfffff800, SelfIDBuffer_selfIDBufferPtr_shift = 11,
-
-    /* 11.2  SelfIDCount */
-    MASK_SelfIDCount = 0x80ff07fc,
-    SelfIDCount_selfIDError      = 0x80000000, SelfIDCount_selfIDError_shift = 31,
-    SelfIDCount_selfIDGeneration = 0x00ff0000, SelfIDCount_selfIDGeneration_shift = 16,
-    SelfIDCount_selfIDSize       = 0x000007fc, SelfIDCount_selfIDSize_shift = 2,
-
+#define BEGIN_REGISTER(r,a,m)   MASK_ ## r = m,
+#define END_REGISTER
+#define BEGIN_REGISTER_SET_CLEAR(r,a,m) BEGIN_REGISTER(r,a,m)
+#define END_REGISTER_SET_CLEAR
+#define FLAG(r,f,p)             r ## _ ## f = 1 << p,
+#define FIELD(r,f,m,s)          r ## _ ## f = m, r ## _ ## f ## _shift = s,
+#include "ohci1394-regs.h"
+#undef BEGIN_REGISTER
+#undef END_REGISTER
+#undef BEGIN_REGISTER_SET_CLEAR
+#undef END_REGISTER_SET_CLEAR
+#undef FLAG
+#undef FIELD
 };
 
 enum ohci1394_event_code {
@@ -361,20 +271,88 @@ typedef struct {
 } OHCI1394State;
 
 
-static char *ohci1394_find_addr_label(uint32_t addr)
+static char *ohci1394_display_reg(ohci1394_reg_desc_t *regs_desc, uint32_t addr, uint32_t val, int is_write)
 {
-    int i;
-    static char unknown[64];
+#define DISPLAY_SIZE 1024
+    static char disp[DISPLAY_SIZE];
+    char *cur = disp;
+    int i, size = DISPLAY_SIZE, len;
+    ohci1394_reg_desc_t *reg = NULL;
+    struct ohci1394_reg_field_t *field;
 
-    for(i = 0; i < (sizeof(ohci1394_regs_labels) / sizeof(ohci1394_const_label_t)); i++) {
-        if(ohci1394_regs_labels[i].addr == addr)
-            return (char *) ohci1394_regs_labels[i].label;
+    i = 0;
+    while(regs_desc[i].addr != -1) {
+        reg = &regs_desc[i];
+
+        if(reg->addr == addr || ((reg->addr + 4) == addr && reg->is_pair))
+            break;
+
+        i++;
+    }
+    
+    disp[0] = '\0';
+    cur = disp;
+
+    /* nothing found */
+    if(regs_desc[i].addr == -1 || reg == NULL) {
+        len = snprintf(cur, size, "addr=0x%08x val=0x%08x", addr, val);
+
+        return disp;
     }
 
-    unknown[0] = '\0';
-    snprintf(unknown, sizeof(unknown), "0x" TARGET_FMT_plx, addr);
+    len = snprintf(cur, size, "@%s", reg->label);
+    cur += len;
+    size -= len;
 
-    return unknown;
+    /* Only if writing a set & clear pair */
+    if(is_write && reg->is_pair) {
+        int setter = (reg->addr == addr);   /* ... as opposed to clearing (since *Set reg precedes *Clear */
+
+        for(i = 0; i < MAX_REG_FIELDS; i++) {
+            field = &reg->fields[i];
+
+            if(field->is_flag == -1)
+                break;
+
+            if(!field->is_flag)
+                continue;
+
+            /* If this flag is set... */
+            if(val & (1 << field->val)) {
+                len = snprintf(cur, size, " %c%s", setter ? '+' : '-', field->name);
+                cur += len;
+                size -= len;
+            }
+        }
+
+        return disp;
+    }
+
+    /* Otherwise normal register with flags and fields */
+    for(i = 0; i < MAX_REG_FIELDS; i++) {
+        field = &reg->fields[i];
+
+        if(field->is_flag == -1)
+            break;
+
+        /* If this is a flag... */
+        if(field->is_flag) {
+            /* .. show if set */
+            if(val & (1 << field->val)) {
+                len = snprintf(cur, size, " %s", field->name);
+                cur += len;
+                size -= len;
+            }
+        }
+        /* .. or just the field */
+        else {
+            len = snprintf(cur, size, " %s=0x%x", field->name, (val & field->val) >> field->shift);
+            cur += len;
+            size -= len;
+        }
+    }
+
+    return disp;
 }
 
 static void ohci1394_interrupt_update(OHCI1394State *d)
@@ -412,15 +390,15 @@ static void ohci1394_reset_bus(OHCI1394State *d)
 }
 
 /* OHCI register write handlers */
-static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32_t val, int clear)
+static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32_t val, int is_clear)
 {
-    if(clear)
+    if(is_clear)
         return;
 
     // val & HCControl_linkEnable  -> linkEnable set to 1
     // val & HCControl_linkEnable  -> linkEnable cleared to 0
     if(val & HCControl_linkEnable)
-        printf("error! LPS cleared by software");
+        printf("error! LPS cleared by software\n");
     
     // p46. Software shall not clear LPS
 
@@ -440,14 +418,6 @@ static void ohci1394_reg_write_SelfIDBuffer(OHCI1394State *d, uint32_t addr, uin
 
 static void ohci1394_reg_write_SelfIDCount(OHCI1394State *d, uint32_t addr, uint32_t val)
 {
-}
-
-static void ohci1394_phy_reg_update(OHCI1394State *d, uint8_t phy_addr, uint8_t data)
-{
-    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, phy_addr);
-    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdData, data);
-
-    FLAG_SET(d, PhyControl, rdDone);
 }
 
 static void ohci1394_phy_reg_write(OHCI1394State *d, uint8_t addr, uint8_t val)
@@ -620,7 +590,7 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
     }
 
 #ifdef OHCI1394_DEBUG
-    printf("ohci1394_regs_readl reg=%s val=0x%08x\n", ohci1394_find_addr_label(addr), val);
+    printf("ohci1394_regs_readl %s\n", ohci1394_display_reg(ohci1394_regs_desc, addr, val, 0));
 #endif
 
     return val;
@@ -632,7 +602,7 @@ static void ohci1394_regs_writel(void *opaque, target_phys_addr_t addr, uint32_t
     enum ohci1394_regs_offs reg = (enum ohci1394_regs_offs) (addr & 0xffff);
 
 #ifdef OHCI1394_DEBUG
-    printf("ohci1394_regs_writel reg=%s val=0x%08x\n", ohci1394_find_addr_label(addr), val);
+    printf("ohci1394_regs_writel %s\n", ohci1394_display_reg(ohci1394_regs_desc, addr, val, 1));
 #endif
 
 #define WRITE_HANDLE(f)     case f: d->regs.f = val; ohci1394_reg_write_ ## f (d, addr, val); break;
