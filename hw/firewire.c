@@ -39,7 +39,10 @@
 #define REG_SET(f,v)    ((f) | (v))
 #define REG_CLEAR(f,v)  ((f) & ~(v))
 
-#define FIELD_SET(s,f,v)    ( ((s) & ~(f)) | ( ((v) << ( f ## _shift )) & f))
+#define FLAG_SET(d,r,f)     { (d)->regs.r |=  ( r ## _ ## f ); }
+#define FLAG_UNSET(d,r,f)   { (d)->regs.r &= ~( r ## _ ## f ); }
+
+#define FIELD_SET(s,f,v)    ( ((s) & ~(f)) | ( ((v) << ( f ## _shift )) & (f)))
 #define FIELD_GET(s,f)      ( ((s) & (f)) >> (f ## _shift) )
 #define FIELD_UPDATE(s,f,v) { (s) = FIELD_SET(s,f,v); }
 
@@ -214,6 +217,17 @@ enum ohci1394_regs_mask {
 
     /* 6.4.2  IsoRecvIntMask */
     MASK_IsoRecvIntMask = 0xffffffff,
+
+    /* 11.1  SelfIDBuffer */
+    MASK_SelfIDBuffer = 0xfffff800,
+    SelfIDBuffer_selfIDBufferPtr = 0xfffff800, SelfIDBuffer_selfIDBufferPtr_shift = 11,
+
+    /* 11.2  SelfIDCount */
+    MASK_SelfIDCount = 0x80ff07fc,
+    SelfIDCount_selfIDError      = 0x80000000, SelfIDCount_selfIDError_shift = 31,
+    SelfIDCount_selfIDGeneration = 0x00ff0000, SelfIDCount_selfIDGeneration_shift = 16,
+    SelfIDCount_selfIDSize       = 0x000007fc, SelfIDCount_selfIDSize_shift = 2,
+
 };
 
 enum ohci1394_event_code {
@@ -279,6 +293,54 @@ typedef struct {
     uint32_t PhysicalUpperBound;
 } ohci1394_controller_registers;
 
+enum ohci1394_phy_regs_mask {
+    /* 0000_2 */
+    PHY_Physical_ID = 0x3f, PHY_Physical_ID_shift = 0,
+    PHY_R           = (1 << 6),
+    PHY_PS          = (1 << 7),
+
+    /* 0001_2 */
+    PHY_RHB         = (1 << 0),
+    PHY_IBR         = (1 << 1),
+    PHY_Gap_count   = 0xfc, PHY_Gap_count_shift = 2,
+
+    /* 0010_2 */
+    PHY_Extended    = 0x07, PHY_Extended_shift = 0,
+    PHY_Total_ports = 0x08, PHY_Total_ports_shift = 3,
+
+    /* 0011_2 */
+    PHY_Max_speed   = 0x07, PHY_Max_speed_shift = 0,
+    PHY_Delay       = 0xf0, PHY_Delay_shift = 4,
+
+    /* 0100_2 */
+    PHY_LCtrl       = (1 << 0),
+    PHY_Contender   = (1 << 1),
+    PHY_Jitter      = 0x1c, PHY_Jitter_shift = 2,
+    PHY_Pwr_class   = 0xe0, PHY_Pwr_class_shift = 5,
+
+    /* 0101_2 */
+    PHY_Watchdog    = (1 << 0),
+    PHY_ISBR        = (1 << 1),
+    PHY_Loop        = (1 << 2),
+    PHY_Pwr_fail    = (1 << 3),
+    PHY_Timeout     = (1 << 4),
+    PHY_Port_event  = (1 << 5),
+    PHY_Enab_accel  = (1 << 6),
+    PHY_Enab_multi  = (1 << 7),
+
+    /* 0111_2 */
+    PHY_Page_select = 0x07, PHY_Page_select_shift = 0,
+    PHY_Port_select = 0xf0, PHY_Port_select_shift = 4,
+};
+
+typedef struct {
+    uint8_t page_select;
+    uint8_t port_select;
+
+    uint8_t ISBR;
+    uint8_t Enab_accel;
+} ohci1394_phy_registers;
+
 typedef struct {
     PCIDevice dev;
     
@@ -286,13 +348,16 @@ typedef struct {
 
     int regs_index;
     uint32_t regs_addr;
-
+    
     /* OHCI register values */
     ohci1394_controller_registers regs;
 
+    /* IEEE1394 PHY registers */
+    ohci1394_phy_registers phy_regs;
+
     /* Internal device state */
     int softReset;
-    char phy_regs[16];
+    int selfIDBufferPtr;
 } OHCI1394State;
 
 
@@ -318,10 +383,10 @@ static void ohci1394_interrupt_update(OHCI1394State *d)
 
     /* Update iso xmit/recv interrupt status bits */
     if((d->regs.IsoXmitIntEvent & d->regs.IsoXmitIntMask) != 0)
-        d->regs.IntEvent |= IntEvent_isochTx;
+        FLAG_SET(d, IntEvent, isochTx);
     
     if((d->regs.IsoRecvIntEvent & d->regs.IsoRecvIntMask) != 0)
-        d->regs.IntEvent |= IntEvent_isochRx;
+        FLAG_SET(d, IntEvent, isochRx);
 
     /* Determine if interrupt should be fired */
     if((d->regs.IntEvent & IntMask_masterIntEnable) != 0 && (d->regs.IntEvent & d->regs.IntMask) != 0)
@@ -339,7 +404,7 @@ static void ohci1394_reset_soft(OHCI1394State *d)
     /* Do soft reset */
     
     /* Clear status */
-    d->regs.HCControl &= ~HCControl_softReset;
+    FLAG_UNSET(d, HCControl, softReset);
 }
 
 static void ohci1394_reset_bus(OHCI1394State *d)
@@ -363,30 +428,144 @@ static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32
         ohci1394_reset_soft(d);
 }
 
-static void ohci1394_reg_write_PhyControl(OHCI1394State *d, uint32_t addr, uint32_t val)
+static void ohci1394_reg_write_SelfIDBuffer(OHCI1394State *d, uint32_t addr, uint32_t val)
 {
-    char data;
+    d->regs.SelfIDBuffer = val;
+    d->selfIDBufferPtr = FIELD_GET(val, SelfIDBuffer_selfIDBufferPtr);
 
-    if(val & PhyControl_rdReg) {
-        addr = FIELD_GET(val, PhyControl_regAddr);
-        data = d->phy_regs[addr];
+#ifdef OHCI1394_DEBUG
+    printf("ohci1394_reg_write_SelfIDBuffer bufferPtr=0x%08x\n", d->selfIDBufferPtr);
+#endif
+}
 
-        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
-        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdData, data);
+static void ohci1394_reg_write_SelfIDCount(OHCI1394State *d, uint32_t addr, uint32_t val)
+{
+}
+
+static void ohci1394_phy_reg_update(OHCI1394State *d, uint8_t phy_addr, uint8_t data)
+{
+    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, phy_addr);
+    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdData, data);
+
+    FLAG_SET(d, PhyControl, rdDone);
+}
+
+static void ohci1394_phy_reg_write(OHCI1394State *d, uint8_t addr, uint8_t val)
+{
+#ifdef OHCI1394_DEBUG
+    printf("ohci1394_phy_reg_write page=%d addr=0x%02x val=0x%02x\n", d->phy_regs.page_select, addr, val);
+#endif
+    
+    switch(d->phy_regs.page_select) {
+        /* Page 0 */
+        case 0:
+            switch(addr) {
+                case 5: /* 0101_2 */
+                    d->phy_regs.ISBR = val & PHY_ISBR;
+                    d->phy_regs.Enab_accel = val & PHY_Enab_accel;
+                    break;
+
+                case 7: /* 0111_2 */
+                    d->phy_regs.page_select = FIELD_GET(val, PHY_Page_select);
+                    break;
+            }
+            break;
     }
-    else if(val & PhyControl_wrReg) {
-        addr = FIELD_GET(val, PhyControl_regAddr);
-        data = FIELD_GET(val, PhyControl_wrData);
-        d->phy_regs[addr] = data;
+    
+    FLAG_SET(d, PhyControl, rdDone);
+}
 
-        FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
+static void ohci1394_phy_reg_read(OHCI1394State *d, uint8_t addr)
+{
+    uint8_t val = 0;
+
+    /* Cable environment extended PHY register map */
+    if(addr >= 0 && addr <= 7) {
+        switch(addr) {
+            case 0: /* 0000_2 */
+                break;
+
+            case 1: /* 0001_2 */
+                break;
+
+            case 2: /* 0010_2 */
+                val |= PHY_Extended;
+                FIELD_UPDATE(val, PHY_Total_ports, 1);
+                break;
+
+            case 3: /* 0011_2 */
+                FIELD_UPDATE(val, PHY_Max_speed, 2);
+                break;
+
+            case 4: /* 0100_2 */
+                break;
+
+            case 5: /* 0101_2 */
+                val |= d->phy_regs.ISBR ? PHY_ISBR : 0;
+                val |= d->phy_regs.Enab_accel ? PHY_Enab_accel : 0;
+                break;
+
+            case 6: break; /* 0110_2 reserved */
+
+            case 7: /* 0111_2 */
+                val = d->phy_regs.page_select;
+                break;
+        }
     }
     else
-        return;
+        switch(d->phy_regs.page_select) {
+            /* Page 0 */
+            case 0:
+                switch(addr) {
+                    case 8:
+                        val = 0xff;
+                        break;
+                }
+                break;
 
-    d->regs.PhyControl |= PhyControl_rdDone;
-    d->regs.IntEvent |= IntEvent_phyRegRcvd;
+            /* Page 1 */
+            case 1:
+                switch(addr) {
+                }
+                break;
+        }
+
+#ifdef OHCI1394_DEBUG
+    if(addr & ~0x07)
+        printf("ohci1394_phy_reg_read page=%d addr=0x%02x val=0x%02x\n", d->phy_regs.page_select, addr, val);
+    else
+        printf("ohci1394_phy_reg_read addr=0x%x val=0x%02x\n", addr, val);
+#endif
+
+    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
+    FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdData, val);
+
+    FLAG_SET(d, PhyControl, rdDone);
+    FLAG_SET(d, IntEvent, phyRegRcvd);
     ohci1394_interrupt_update(d);
+}
+
+static void ohci1394_reg_write_PhyControl(OHCI1394State *d, uint32_t addr, uint32_t val)
+{
+    uint8_t phy_addr, data;
+
+    d->regs.PhyControl = val;
+    phy_addr = FIELD_GET(val, PhyControl_regAddr);
+
+    if(val & PhyControl_rdReg) {
+        FLAG_UNSET(d, PhyControl, rdReg);
+        FLAG_UNSET(d, PhyControl, rdDone);
+
+        ohci1394_phy_reg_read(d, phy_addr);
+    }
+    else if(val & PhyControl_wrReg) {
+        FLAG_UNSET(d, PhyControl, wrReg);
+        FLAG_UNSET(d, PhyControl, rdDone);
+
+        data = FIELD_GET(val, PhyControl_wrData);
+
+        ohci1394_phy_reg_write(d, phy_addr, data);
+    }
 }
 
 /* OHCI register space */
@@ -425,6 +604,8 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
 
     switch(reg) {
         READ_SET_AND_CLEAR      (HCControl)
+        READ_DIRECT             (SelfIDBuffer)
+        READ_DIRECT             (SelfIDCount)
         READ_SET_AND_CLEAR      (LinkControl)
         READ_DIRECT             (PhyControl)
         READ_SET_AND_MASK_CLEAR (IntEvent, IntMask)
@@ -504,6 +685,11 @@ static void ohci1394_regs_writel(void *opaque, target_phys_addr_t addr, uint32_t
         /* 6.4.2  IsoRecvIntMask */
         WRITE_SET_AND_CLEAR_INTERRUPT(IsoRecvIntMask)
 
+        /* 11.1  SelfIDBuffer */
+        WRITE_HANDLE(SelfIDBuffer)
+        
+        /* 11.2  SelfIDCount */
+        WRITE_HANDLE(SelfIDCount)
 
         default:
             break;
@@ -521,6 +707,7 @@ static CPUWriteMemoryFunc *ohci1394_regs_write[] = {
     NULL,
     (CPUWriteMemoryFunc *) &ohci1394_regs_writel
 };
+
 
 
 /* Host interface */
@@ -555,8 +742,8 @@ static void ohci1394_common_init(OHCI1394State *d)
 
     d->host_fd = fd;
 
-    /* Clear PHY regs */
-    memset(d->phy_regs, 0, sizeof(d->phy_regs));
+    d->phy_regs.page_select = 0;
+    d->phy_regs.port_select = 0;
 }
 
 /* PCI device init */
