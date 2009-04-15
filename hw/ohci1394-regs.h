@@ -1,9 +1,11 @@
+
 /* 5.2  Version */
 BEGIN_REGISTER(Version, 0x000, 0x01ff00ff)
     FLAG (Version, GUID_ROM,    24)
     FIELD(Version, version,     0x00ff0000, 16)
     FIELD(Version, revision,    0x000000ff, 0)
 END_REGISTER
+
 
 /* 5.3  GUID_ROM */
 BEGIN_REGISTER(GUID_ROM, 0x004, 0x82ff00ff)
@@ -13,44 +15,72 @@ BEGIN_REGISTER(GUID_ROM, 0x004, 0x82ff00ff)
     FIELD(GUID_ROM, miniROM,    0x000000ff, 0)
 END_REGISTER
 
+
 /* 5.4  ATRetries */
 BEGIN_REGISTER(ATRetries, 0x008, 0xffff0fff)
-    FIELD(ATRetries, secondLimit,   0xe0000000, 29)
-    FIELD(ATRetries, cycleLimit,    0x1fff0000, 16)
+    FIELD(ATRetries, secondLimit,           0xe0000000, 29)
+    FIELD(ATRetries, cycleLimit,            0x1fff0000, 16)
     FIELD(ATRetries, maxPhysRespRetries,    0x00000f00, 8)
-    FIELD(ATRetries, maxATRespRetries, 0x000000f0, 4)
-    FIELD(ATRetries, maxATReqRetries, 0x0000000f, 0)
+    FIELD(ATRetries, maxATRespRetries,      0x000000f0, 4)
+    FIELD(ATRetries, maxATReqRetries,       0x0000000f, 0)
 END_REGISTER
 
-/* 5.5  p56 */
 
+/* 5.5.1  Bus Management CSR Registers */
 BEGIN_REGISTER(CSRReadData, 0x00c, 0xffffffff)
+    FIELD(CSRReadData, csrData, 0xffffffff, 0)
 END_REGISTER
 
-BEGIN_REGISTER(CSRCompareDate, 0x010, 0xffffffff)
+BEGIN_REGISTER(CSRCompareData, 0x010, 0xffffffff)
+    FIELD(CSRReadData, csrCompare, 0xffffffff, 0)
 END_REGISTER
 
 BEGIN_REGISTER(CSRControl, 0x014, 0xffffffff)
+    FLAG (CSRControl, csrDone, 31)
+    FIELD(CSRControl, csrSel, 0x00000003, 0)
 END_REGISTER
 
+
+/* 5.5.2  ConfigROM header */
 BEGIN_REGISTER(ConfigROMhdr, 0x018, 0xffffffff)
+    FIELD(ConfigROMhdr, info_length,    0xff000000, 24)
+    FIELD(ConfigROMhdr, crc_length,     0x00ff0000, 16)
+    FIELD(ConfigROMhdr, rom_crc_value,  0x0000ffff, 0)
 END_REGISTER
 
+
+/* 5.5.3  Bus identification register */
 BEGIN_REGISTER(BusID, 0x01c, 0xffffffff)
+    FIELD(BusID, busID, 0xffffffff, 0)
 END_REGISTER
 
+
+/* 5.5.4  Bus options register */
 BEGIN_REGISTER(BusOptions, 0x020, 0xffffffff)
+    FIELD(BusOptions, bit16_31, 0xffff0000, 16)
+    FIELD(BusOptions, max_rec,  0x0000f000, 12)
+    FIELD(BusOptions, bits3_11, 0x00000ff8, 3)
+    FIELD(BusOptions, link_spd, 0x00000007, 0)
 END_REGISTER
 
+
+/* 5.5.5  Global Unique ID */
 BEGIN_REGISTER(GUIDHi, 0x024, 0xffffffff)
+    FIELD(GUIDHi, node_vendor_ID,   0xffffff00, 8)
+    FIELD(GUIDHi, chip_ID_hi,       0x000000ff, 0)
 END_REGISTER
 
 BEGIN_REGISTER(GUIDLo, 0x028, 0xffffffff)
+    FIELD(GUIDLo, chip_ID_lo,       0xffffffff, 0)
 END_REGISTER
 
+
+/* 5.5.6  Configuration ROM mapping register */
 BEGIN_REGISTER(ConfigROMmap, 0x034, 0xffffffff)
 END_REGISTER
 
+
+/* 13.2.8.1  PostedWriteAddress */
 BEGIN_REGISTER(PostedWriteAddrLo, 0x038, 0xffffffff)
 END_REGISTER
 
@@ -63,6 +93,7 @@ BEGIN_REGISTER(VendorID, 0x040, 0xffffffff)
     FIELD(VendorID, vendorUnique, 0xff000000, 24)
     FIELD(VendorID, vendorCompanyID, 0x00ffffff, 0)
 END_REGISTER
+
 
 /* 5.7  HCControl */
 BEGIN_REGISTER_SET_CLEAR(HCControl, 0x050, 0xe0cf0000)
@@ -82,6 +113,7 @@ END_REGISTER_SET_CLEAR
 BEGIN_REGISTER(SelfIDBuffer, 0x064, 0xfffff800)
     FIELD(SelfIDBuffer, selfIDBufferPtr, 0xfffff800, 11)
 END_REGISTER
+
 
 /* 11.2  SelfIDCount */
 BEGIN_REGISTER(SelfIDCount, 0x068, 0x80ff07fc)
@@ -128,22 +160,27 @@ BEGIN_REGISTER_SET_CLEAR(IntEvent, 0x080, 0x6fff83ff)
     FLAG(IntEvent, reqTxComplete,       0)
 END_REGISTER_SET_CLEAR
 
+
 /* 6.2  IntMask */
 BEGIN_REGISTER_SET_CLEAR(IntMask, 0x088, 0xefff83ff)
     FLAG(IntMask, masterIntEnable,      31)
 END_REGISTER_SET_CLEAR
 
+
 /* 6.3.1  IsoXmitIntEvent */
 BEGIN_REGISTER_SET_CLEAR(IsoXmitIntEvent, 0x090, 0xffffffff)
 END_REGISTER_SET_CLEAR
+
 
 /* 6.3.2  IsoXmitIntMask */
 BEGIN_REGISTER_SET_CLEAR(IsoXmitIntMask, 0x098, 0xffffffff)
 END_REGISTER_SET_CLEAR
 
+
 /* 6.4.1  IsoRecvIntEvent */
 BEGIN_REGISTER_SET_CLEAR(IsoRecvIntEvent, 0x0a0, 0xffffffff)
 END_REGISTER_SET_CLEAR
+
 
 /* 6.4.2  IsoRecvIntMask */
 BEGIN_REGISTER_SET_CLEAR(IsoRecvIntMask, 0x0a8, 0xffffffff)
@@ -159,10 +196,12 @@ END_REGISTER
 BEGIN_REGISTER(InitialChannelsAvailableLo, 0x0b8, 0xffffffff)
 END_REGISTER
 
+
 /* 5.9  FairnessControl */
 BEGIN_REGISTER(FairnessControl, 0x0dc, 0x000000ff)
     FIELD(FairnessControl, pri_req, 0x000000ff, 0)
 END_REGISTER
+
 
 /* 5.10  LinkControl */
 BEGIN_REGISTER_SET_CLEAR(LinkControl, 0x0e0, 0x00700640)
@@ -174,6 +213,7 @@ BEGIN_REGISTER_SET_CLEAR(LinkControl, 0x0e0, 0x00700640)
     FLAG(LinkControl, tag1SyncFilterLock,   6)
 END_REGISTER_SET_CLEAR
 
+
 /* 5.11  Node ID */
 BEGIN_REGISTER(NodeID, 0x0e8, 0xc800ffff)
     FLAG (NodeID, iDValid,      31)
@@ -182,6 +222,7 @@ BEGIN_REGISTER(NodeID, 0x0e8, 0xc800ffff)
     FIELD(NodeID, busNumber,    0x0000ffc0, 6)
     FIELD(NodeID, nodeNumber,   0x0000003f, 0)
 END_REGISTER
+
 
 /* 5.12  PhyControl */
 BEGIN_REGISTER(PhyControl, 0x0ec, 0xffffffff)
@@ -194,6 +235,7 @@ BEGIN_REGISTER(PhyControl, 0x0ec, 0xffffffff)
     FIELD(PhyControl, wrData,   0x000000ff, 0)
 END_REGISTER
 
+
 /* 5.13  IsoCycleTimer */
 BEGIN_REGISTER(IsoCycleTimer, 0x0f0, 0xffffffff)
     FIELD(IsoCycleTimer, cycleSeconds,  0xfe000000, 25)
@@ -201,22 +243,32 @@ BEGIN_REGISTER(IsoCycleTimer, 0x0f0, 0xffffffff)
     FIELD(IsoCycleTimer, cycleOffest,   0x00000fff, 0)
 END_REGISTER
 
+
 /* 5.14.1  AsyncReqFilterHi/Lo */
 BEGIN_REGISTER_SET_CLEAR(AsyncReqFilterHi, 0x100, 0xffffffff)
+    FLAG (AsyncReqFilterHi, resourceAll, 31)
+    FIELD(AsyncReqFilterHi, resource, 0x7fffffff, 0)
 END_REGISTER_SET_CLEAR
 
 BEGIN_REGISTER_SET_CLEAR(AsyncReqFilterLo, 0x108, 0xffffffff)
+    FIELD(AsyncReqFilterLo, resource, 0xffffffff, 0)
 END_REGISTER_SET_CLEAR
+
 
 /* 5.14.2  PhyReqFilterHi/Lo */
 BEGIN_REGISTER_SET_CLEAR(PhyReqFilterHi, 0x110, 0xffffffff)
+    FLAG (PhyReqFilterHi, resourceAllBuses, 31)
+    FIELD(PhyReqFilterHi, resource, 0x7fffffff, 0)
 END_REGISTER_SET_CLEAR
 
 BEGIN_REGISTER_SET_CLEAR(PhyReqFilterLo, 0x118, 0xffffffff)
+    FIELD(PhyReqFilterLo, resource, 0xffffffff, 0)
 END_REGISTER_SET_CLEAR
 
 
+/* 5.15  PhysicalUpperBound */
 BEGIN_REGISTER(PhysicalUpperBound, 0x120, 0xffffffff)
+    FIELD(PhysicalUpperBound, physUpperBoundOffset, 0xffffffff, 0)
 END_REGISTER
 
 
@@ -227,12 +279,14 @@ END_REGISTER_SET_CLEAR
 BEGIN_REGISTER(AsyncReqXmitCommandPtr, 0x18c, 0xffffffff)
 END_REGISTER
 
+
 /* Async Response Transmit */
 BEGIN_REGISTER_SET_CLEAR(AsyncRespXmitContextControl, 0x1a0, 0xffffffff)
 END_REGISTER_SET_CLEAR
 
 BEGIN_REGISTER(AsyncRespXmitCommandPtr, 0x1ac, 0xffffffff)
 END_REGISTER
+
 
 /* Async Request Receive */
 BEGIN_REGISTER_SET_CLEAR(AsyncReqRecvContextControl, 0x1c0, 0xffffffff)
@@ -241,6 +295,7 @@ END_REGISTER_SET_CLEAR
 BEGIN_REGISTER(AsyncReqRecvCommandPtr, 0x1cc, 0xffffffff)
 END_REGISTER
 
+
 /* Async Response Receive */
 BEGIN_REGISTER_SET_CLEAR(AsyncRespRecvContextControl, 0x1e0, 0xffffffff)
 END_REGISTER_SET_CLEAR
@@ -248,12 +303,14 @@ END_REGISTER_SET_CLEAR
 BEGIN_REGISTER(AsyncResqRecvCommandPtr, 0x1ec, 0xffffffff)
 END_REGISTER
 
+
 /* Iso Transmit */
 BEGIN_REGISTER_SET_CLEAR(IsoXmitContextControl, 0x200, 0xffffffff)
 END_REGISTER_SET_CLEAR
 
 BEGIN_REGISTER(IsoXmitCommandPtr, 0x20c, 0xffffffff)
 END_REGISTER
+
 
 /* Iso Receive */
 BEGIN_REGISTER_SET_CLEAR(IsoRecvContextControl, 0x400, 0xffffffff)

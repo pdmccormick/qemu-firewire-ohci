@@ -196,12 +196,16 @@ typedef struct {
     uint32_t GUID_ROM;
     uint32_t ATRetries;
     // CSR
+    uint32_t CSRReadData;
+    uint32_t CSRCompareData;
+    uint32_t CSRControl;
+
     uint32_t ConfigROMhdr;
     uint32_t BusID;
     uint32_t BusOptions;
     uint32_t GUIDHi, GUIDLo;
     uint32_t ConfigROMmap;
-    uint32_t PostedWriteAddressLo, PostedWriteAddressHi;
+    uint32_t PostedWriteAddrLo, PostedWriteAddrHi;
     uint32_t VendorID;
     uint32_t HCControl;
     uint32_t SelfIDBuffer, SelfIDCount;
@@ -353,6 +357,13 @@ static void ohci1394_interrupt_update(OHCI1394State *d)
 
 static void ohci1394_reset_hard(OHCI1394State *d)
 {
+    memset(&d->regs, 0, sizeof(ohci1394_controller_registers));
+    memset(&d->phy_regs, 0, sizeof(ohci1394_phy_registers));
+
+    FIELD_UPDATE(d->regs.Version, Version_version,  0x01);
+    FIELD_UPDATE(d->regs.Version, Version_revision, 0x10);
+
+    d->regs.BusID = cpu_to_be32(0x31333934);  /* ASCII value for "1394" */
 }
 
 static void ohci1394_reset_soft(OHCI1394State *d)
@@ -375,7 +386,7 @@ static void ohci1394_reg_write_HCControl(OHCI1394State *d, uint32_t addr, uint32
 
     // val & HCControl_linkEnable  -> linkEnable set to 1
     // val & HCControl_linkEnable  -> linkEnable cleared to 0
-    if(val & HCControl_linkEnable)
+    if(val & HCControl_linkEnable && is_clear)
         printf("error! LPS cleared by software\n");
     
     // p46. Software shall not clear LPS
@@ -416,6 +427,7 @@ static void ohci1394_phy_reg_write(OHCI1394State *d, uint8_t addr, uint8_t val)
 
             case 7: /* 0111_2 */
                 d->phy_regs.page_select = FIELD_GET(val, PHY_Page_select);
+                d->phy_regs.port_select = FIELD_GET(val, PHY_Port_select);
                 break;
         }
     }
@@ -554,11 +566,26 @@ static uint32_t ohci1394_regs_readl(void *opaque, target_phys_addr_t addr)
             break;
 
     switch(reg) {
+        READ_DIRECT             (Version)
+        READ_DIRECT             (GUID_ROM)
+        READ_DIRECT             (ATRetries)
+        READ_DIRECT             (CSRReadData)
+        READ_DIRECT             (CSRCompareData)
+        READ_DIRECT             (CSRControl)
+        READ_DIRECT             (BusID)
+        READ_DIRECT             (BusOptions)
+        READ_DIRECT             (GUIDHi)
+        READ_DIRECT             (GUIDLo)
+        READ_DIRECT             (ConfigROMmap)
+        READ_DIRECT             (PostedWriteAddrLo)
+        READ_DIRECT             (PostedWriteAddrHi)
+        READ_DIRECT             (VendorID)
         READ_SET_AND_CLEAR      (HCControl)
         READ_DIRECT             (SelfIDBuffer)
         READ_DIRECT             (SelfIDCount)
         READ_SET_AND_CLEAR      (LinkControl)
         READ_DIRECT             (PhyControl)
+
         READ_SET_AND_MASK_CLEAR (IntEvent, IntMask)
         READ_SET_AND_CLEAR      (IntMask)
         READ_SET_AND_MASK_CLEAR (IsoXmitIntEvent, IsoXmitIntMask)
@@ -695,6 +722,8 @@ static void ohci1394_common_init(OHCI1394State *d)
 
     d->phy_regs.page_select = 0;
     d->phy_regs.port_select = 0;
+
+    ohci1394_reset_hard(d);
 }
 
 /* PCI device init */
