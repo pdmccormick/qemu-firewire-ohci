@@ -201,14 +201,14 @@ BEGIN_REGISTER(IsoCycleTimer, 0x0f0, 0xffffffff)
     FIELD(IsoCycleTimer, cycleOffest,   0x00000fff, 0)
 END_REGISTER
 
-/* 5.14.1  AsyncReqFilter */
+/* 5.14.1  AsyncReqFilterHi/Lo */
 BEGIN_REGISTER_SET_CLEAR(AsyncReqFilterHi, 0x100, 0xffffffff)
 END_REGISTER_SET_CLEAR
 
 BEGIN_REGISTER_SET_CLEAR(AsyncReqFilterLo, 0x108, 0xffffffff)
 END_REGISTER_SET_CLEAR
 
-/* 5.14.2  PhyReqFilter */
+/* 5.14.2  PhyReqFilterHi/Lo */
 BEGIN_REGISTER_SET_CLEAR(PhyReqFilterHi, 0x110, 0xffffffff)
 END_REGISTER_SET_CLEAR
 

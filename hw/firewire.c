@@ -62,28 +62,29 @@ enum ohci1349_pci_offs {
 };
 
 /* Numeric enum constants for OHCI registers */
-enum ohci1394_regs_offs {
 #define BEGIN_REGISTER(r,a,m)               r = a,
 #define END_REGISTER
-#define BEGIN_REGISTER_SET_CLEAR(r,a,m)     r ## _Set   = a,        \
-                                            r ## _Clear = a + 4,
+#define BEGIN_REGISTER_SET_CLEAR(r,a,m)     r ## _Set = a, r ## _Clear = a + 4,
 #define END_REGISTER_SET_CLEAR
 #define FLAG(...)
 #define FIELD(...)
+
+enum ohci1394_regs_offs {
 #include "ohci1394-regs.h"
+};
+
 #undef BEGIN_REGISTER
 #undef END_REGISTER
 #undef BEGIN_REGISTER_SET_CLEAR
 #undef END_REGISTER_SET_CLEAR
 #undef FLAG
 #undef FIELD
-};
 
 /* Labels for OHCI registers by address */
 #define MAX_REG_FIELDS  32
 typedef struct {
     uint32_t addr;
-    int is_pair;
+    int is_pair;         // 1 for Set & Clear pair in OHCI context, page # for PHY regs
     const char *label;
     struct ohci1394_reg_field_t {
         int is_flag;
@@ -93,22 +94,39 @@ typedef struct {
     } fields[MAX_REG_FIELDS];
 } ohci1394_reg_desc_t;
 
-ohci1394_reg_desc_t ohci1394_regs_desc[] = {
+
 #define BEGIN_REGISTER(r,a,m)  { a, 0, #r, {
 #define END_REGISTER  { -1, NULL, -1, -1 }   } },
 #define BEGIN_REGISTER_SET_CLEAR(r,a,m) { a, 1, #r, {
 #define END_REGISTER_SET_CLEAR END_REGISTER
 #define FLAG(r,f,p)     { 1, #f, p, 0 },
 #define FIELD(r,f,m,s)  { 0, #f, m, s },
+
+ohci1394_reg_desc_t ohci1394_regs_desc[] = {
 #include "ohci1394-regs.h"
+    { -1, -1, NULL, {} }
+};
+
+ohci1394_reg_desc_t ohci1394_phy_regs_desc[] = {
+#include "ohci1394-phy.h"
+    { -1, -1, NULL, {} }
+};
+
 #undef BEGIN_REGISTER
 #undef END_REGISTER
 #undef BEGIN_REGISTER_SET_CLEAR
 #undef END_REGISTER_SET_CLEAR
 #undef FLAG
 #undef FIELD
-    { -1, -1, NULL, {} }
-};
+
+
+/* Register fields */
+#define BEGIN_REGISTER(r,a,m)   MASK_ ## r = m,
+#define END_REGISTER
+#define BEGIN_REGISTER_SET_CLEAR(r,a,m) BEGIN_REGISTER(r,a,m)
+#define END_REGISTER_SET_CLEAR
+#define FLAG(r,f,p)             r ## _ ## f = 1 << p,
+#define FIELD(r,f,m,s)          r ## _ ## f = m, r ## _ ## f ## _shift = s,
 
 enum ohci1394_regs_mask {
     /* 3.1.1  ContextControl */
@@ -125,20 +143,20 @@ enum ohci1394_regs_mask {
     CommandPtr_descriptorAddr   = 0xfffffff0, CommandPtr_descriptorAddr_shift = 4,
     CommandPtr_Z                = 0x0000000f, CommandPtr_Z_shift = 0,
 
-#define BEGIN_REGISTER(r,a,m)   MASK_ ## r = m,
-#define END_REGISTER
-#define BEGIN_REGISTER_SET_CLEAR(r,a,m) BEGIN_REGISTER(r,a,m)
-#define END_REGISTER_SET_CLEAR
-#define FLAG(r,f,p)             r ## _ ## f = 1 << p,
-#define FIELD(r,f,m,s)          r ## _ ## f = m, r ## _ ## f ## _shift = s,
 #include "ohci1394-regs.h"
+};
+
+enum ohci1394_phy_regs_mask {
+#include "ohci1394-phy.h"
+};
+
 #undef BEGIN_REGISTER
 #undef END_REGISTER
 #undef BEGIN_REGISTER_SET_CLEAR
 #undef END_REGISTER_SET_CLEAR
 #undef FLAG
 #undef FIELD
-};
+
 
 enum ohci1394_event_code {
     evt_no_status       = 0x00,
@@ -202,46 +220,6 @@ typedef struct {
     uint32_t PhyReqFilterHi, PhyReqFilterLo;
     uint32_t PhysicalUpperBound;
 } ohci1394_controller_registers;
-
-enum ohci1394_phy_regs_mask {
-    /* 0000_2 */
-    PHY_Physical_ID = 0x3f, PHY_Physical_ID_shift = 0,
-    PHY_R           = (1 << 6),
-    PHY_PS          = (1 << 7),
-
-    /* 0001_2 */
-    PHY_RHB         = (1 << 0),
-    PHY_IBR         = (1 << 1),
-    PHY_Gap_count   = 0xfc, PHY_Gap_count_shift = 2,
-
-    /* 0010_2 */
-    PHY_Extended    = 0x07, PHY_Extended_shift = 0,
-    PHY_Total_ports = 0x08, PHY_Total_ports_shift = 3,
-
-    /* 0011_2 */
-    PHY_Max_speed   = 0x07, PHY_Max_speed_shift = 0,
-    PHY_Delay       = 0xf0, PHY_Delay_shift = 4,
-
-    /* 0100_2 */
-    PHY_LCtrl       = (1 << 0),
-    PHY_Contender   = (1 << 1),
-    PHY_Jitter      = 0x1c, PHY_Jitter_shift = 2,
-    PHY_Pwr_class   = 0xe0, PHY_Pwr_class_shift = 5,
-
-    /* 0101_2 */
-    PHY_Watchdog    = (1 << 0),
-    PHY_ISBR        = (1 << 1),
-    PHY_Loop        = (1 << 2),
-    PHY_Pwr_fail    = (1 << 3),
-    PHY_Timeout     = (1 << 4),
-    PHY_Port_event  = (1 << 5),
-    PHY_Enab_accel  = (1 << 6),
-    PHY_Enab_multi  = (1 << 7),
-
-    /* 0111_2 */
-    PHY_Page_select = 0x07, PHY_Page_select_shift = 0,
-    PHY_Port_select = 0xf0, PHY_Port_select_shift = 4,
-};
 
 typedef struct {
     uint8_t page_select;
@@ -423,24 +401,27 @@ static void ohci1394_reg_write_SelfIDCount(OHCI1394State *d, uint32_t addr, uint
 static void ohci1394_phy_reg_write(OHCI1394State *d, uint8_t addr, uint8_t val)
 {
 #ifdef OHCI1394_DEBUG
-    printf("ohci1394_phy_reg_write page=%d addr=0x%02x val=0x%02x\n", d->phy_regs.page_select, addr, val);
+    if(addr & ~0x07)
+        printf("ohci1394_phy_reg_write page=%d addr=0x%02x val=0x%02x\n", d->phy_regs.page_select, addr, val);
+    else
+        printf("ohci1394_phy_reg_write %s\n", ohci1394_display_reg(ohci1394_phy_regs_desc, addr, val, 1));
 #endif
     
-    switch(d->phy_regs.page_select) {
-        /* Page 0 */
-        case 0:
-            switch(addr) {
-                case 5: /* 0101_2 */
-                    d->phy_regs.ISBR = val & PHY_ISBR;
-                    d->phy_regs.Enab_accel = val & PHY_Enab_accel;
-                    break;
+    if(addr >= 0 && addr <= 7) {
+        switch(addr) {
+            case 5: /* 0101_2 */
+                d->phy_regs.ISBR = val & PHY_ISBR;
+                d->phy_regs.Enab_accel = val & PHY_Enab_accel;
+                break;
 
-                case 7: /* 0111_2 */
-                    d->phy_regs.page_select = FIELD_GET(val, PHY_Page_select);
-                    break;
-            }
-            break;
+            case 7: /* 0111_2 */
+                d->phy_regs.page_select = FIELD_GET(val, PHY_Page_select);
+                break;
+        }
     }
+    else
+        switch(d->phy_regs.page_select) {
+        }
     
     FLAG_SET(d, PhyControl, rdDone);
 }
@@ -504,7 +485,7 @@ static void ohci1394_phy_reg_read(OHCI1394State *d, uint8_t addr)
     if(addr & ~0x07)
         printf("ohci1394_phy_reg_read page=%d addr=0x%02x val=0x%02x\n", d->phy_regs.page_select, addr, val);
     else
-        printf("ohci1394_phy_reg_read addr=0x%x val=0x%02x\n", addr, val);
+        printf("ohci1394_phy_reg_read %s\n", ohci1394_display_reg(ohci1394_phy_regs_desc, addr, val, 0));
 #endif
 
     FIELD_UPDATE(d->regs.PhyControl, PhyControl_rdAddr, addr);
